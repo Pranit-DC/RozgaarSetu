@@ -1,103 +1,109 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import MDButton from "./components/ui/MDButton";
+import { useI18n } from "./i18n/I18nContext";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const { lang: currentLang, setLang, t } = useI18n();
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(currentLang);
+  const router = useRouter();
+  const segRef = useRef<HTMLDivElement | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const languages = [
+    { code: "en", name: "English", nativeName: "English", flag: "🇺🇸" },
+    { code: "hi", name: "Hindi", nativeName: "हिंदी", flag: "🇮🇳" },
+    { code: "mr", name: "Marathi", nativeName: "मराठी", flag: "🇮🇳" },
+  ];
+
+  useEffect(() => { setSelectedLanguage(currentLang); }, [currentLang]);
+
+  const handleContinue = useCallback(() => {
+    if (!selectedLanguage) return;
+    setLang(selectedLanguage as any);
+    router.push('/auth/login');
+  }, [router, selectedLanguage, setLang]);
+
+  const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+    e.preventDefault();
+    const idx = languages.findIndex(l => l.code === selectedLanguage);
+    let nextIdx = idx;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') nextIdx = (idx + 1) % languages.length;
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') nextIdx = (idx - 1 + languages.length) % languages.length;
+    if (e.key === 'Home') nextIdx = 0;
+    if (e.key === 'End') nextIdx = languages.length -1;
+    const next = languages[nextIdx];
+    setSelectedLanguage(next.code);
+    setLang(next.code as any);
+  };
+
+  // Animate segmented indicator
+  useEffect(() => {
+    const indicator = segRef.current?.querySelector<HTMLElement>('.segmented-indicator');
+    const activeBtn = segRef.current?.querySelector<HTMLButtonElement>('button[data-active="true"]');
+    if (indicator && activeBtn && segRef.current) {
+      const rect = activeBtn.getBoundingClientRect();
+      const parent = segRef.current.getBoundingClientRect();
+      indicator.style.width = rect.width + 'px';
+      indicator.style.transform = `translateX(${rect.left - parent.left}px)`;
+    }
+  }, [selectedLanguage]);
+
+  // Parallax removed (pre-optional baseline)
+
+  return (
+    <div className="relative min-h-[calc(100vh-4rem)] pt-10 pb-24 flex items-center overflow-hidden">
+      <div aria-hidden className="absolute inset-0 apple-hero-bg" />
+      <div aria-hidden className="absolute inset-0" style={{maskImage:'radial-gradient(circle at 50% 30%, #000 55%, transparent 80%)'}} />
+      <div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 grid gap-16 lg:grid-cols-2 items-center">
+        <div className="space-y-8">
+          <div className="eyebrow tracking-[0.3em]">{t('common','earlyAccess')}</div>
+          <h1 className="display-hero max-w-xl">{t('landing','heroLine')}</h1>
+          <p className="text-base md:text-lg max-w-md text-[var(--apple-text-secondary)] leading-relaxed">{t('landing','heroLead')}</p>
+          <div className="flex flex-wrap gap-4 text-[13px] text-[var(--apple-text-secondary)]">
+            <div className="px-4 h-10 rounded-full border-subtle flex items-center gap-2 hover-scale"><span className="w-5 h-5 rounded-full bg-[var(--apple-accent)]/15 flex items-center justify-center text-[10px] text-[var(--apple-accent)]">1</span>{t('landing','feat1')}</div>
+            <div className="px-4 h-10 rounded-full border-subtle flex items-center gap-2 hover-scale"><span className="w-5 h-5 rounded-full bg-[var(--apple-accent)]/15 flex items-center justify-center text-[10px] text-[var(--apple-accent)]">2</span>{t('landing','feat2')}</div>
+            <div className="px-4 h-10 rounded-full border-subtle flex items-center gap-2 hover-scale"><span className="w-5 h-5 rounded-full bg-[var(--apple-accent)]/15 flex items-center justify-center text-[10px] text-[var(--apple-accent)]">3</span>{t('landing','feat3')}</div>
+            <div className="px-4 h-10 rounded-full border-subtle flex items-center gap-2 hover-scale"><span className="w-5 h-5 rounded-full bg-[var(--apple-accent)]/15 flex items-center justify-center text-[10px] text-[var(--apple-accent)]">4</span>{t('landing','feat4')}</div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  <div>
+          <div className="glass rounded-[32px] px-8 py-10 relative overflow-hidden">
+            <div className="absolute -top-8 -right-8 w-40 h-40 bg-[var(--apple-accent)]/5 rounded-full" />
+            <div className="absolute -bottom-10 -left-10 w-56 h-56 bg-[var(--apple-accent)]/5 rounded-full" />
+            <div className="relative space-y-8">
+              <header className="space-y-2">
+                <h2 className="text-[20px] font-semibold tracking-tight">{t('common','chooseLanguage')}</h2>
+                <p className="text-[12px] text-[var(--apple-text-secondary)]">{t('common','canChangeLater')}</p>
+              </header>
+              <div ref={segRef} className="segmented w-full justify-between" role="radiogroup" aria-label="Languages" tabIndex={0} onKeyDown={handleKey}>
+                <span className="segmented-indicator" aria-hidden />
+                {languages.map(l => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    data-active={selectedLanguage === l.code}
+                    role="radio"
+                    aria-checked={selectedLanguage === l.code}
+                    aria-label={l.name}
+                    onClick={() => { setSelectedLanguage(l.code); setLang(l.code as any); }}
+                  >
+                    <span className="mr-1" aria-hidden>{l.flag}</span>{l.name}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-6">
+                <MDButton variant="filled" disabled={!selectedLanguage} onClick={handleContinue} className="apple-btn w-full !h-12 !rounded-2xl !text-[15px] !font-semibold !bg-[var(--apple-accent)]">
+                  {t('common','continue')}
+                </MDButton>
+                <p className="text-[11px] text-[var(--apple-text-secondary)] text-center leading-relaxed">{t('common','terms')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
