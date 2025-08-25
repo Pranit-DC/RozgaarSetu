@@ -1,11 +1,29 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "../supabase-client";
 import { useRouter } from "next/navigation";
 import MDButton from "./components/ui/MDButton";
 import { useI18n } from "./i18n/I18nContext";
 
 export default function Home() {
+  const [session, setSession] = useState<any>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }: { data: any }) => {
+      setSession(data.session);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      setSession(session);
+    });
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    window.location.reload();
+  };
   const { lang: currentLang, setLang, t } = useI18n();
   const [selectedLanguage, setSelectedLanguage] = useState<string>(currentLang);
   const router = useRouter();
@@ -95,10 +113,18 @@ export default function Home() {
                 ))}
               </div>
               <div className="space-y-6">
-                <MDButton variant="filled" disabled={!selectedLanguage} onClick={handleContinue} className="apple-btn w-full !h-12 !rounded-2xl !text-[15px] !font-semibold !bg-[var(--apple-accent)]">
-                  {t('common','continue')}
-                </MDButton>
-                <p className="text-[11px] text-[var(--apple-text-secondary)] text-center leading-relaxed">{t('common','terms')}</p>
+                {session ? (
+                  <MDButton variant="filled" onClick={handleLogout} className="apple-btn w-full !h-12 !rounded-2xl !text-[15px] !font-semibold !bg-[var(--apple-accent)]">
+                    Log Out
+                  </MDButton>
+                ) : (
+                  <>
+                    <MDButton variant="filled" disabled={!selectedLanguage} onClick={handleContinue} className="apple-btn w-full !h-12 !rounded-2xl !text-[15px] !font-semibold !bg-[var(--apple-accent)]">
+                      {t('common','continue')}
+                    </MDButton>
+                    <p className="text-[11px] text-[var(--apple-text-secondary)] text-center leading-relaxed">{t('common','terms')}</p>
+                  </>
+                )}
               </div>
             </div>
           </div>

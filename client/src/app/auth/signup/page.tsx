@@ -4,10 +4,29 @@ import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { useState } from "react";
+import { supabase } from "../../../supabase-client";
 
 export default function Signup() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<'worker'|'employer'|''>('');
+  // Common fields
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [location, setLocation] = useState("");
+  // Worker fields
+  const [skills, setSkills] = useState<string[]>([]);
+  const [experienceYears, setExperienceYears] = useState("");
+  const [bio, setBio] = useState("");
+  // Employer fields
+  const [companyName, setCompanyName] = useState("");
+  const [address, setAddress] = useState("");
+  const [preferredSkills, setPreferredSkills] = useState("");
+  const [gst, setGst] = useState("");
+  // UI
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   return (
     <div className="max-w-2xl mx-auto space-y-10">
       <header className="space-y-1 text-center">
@@ -16,7 +35,16 @@ export default function Signup() {
       </header>
       <Card variant="soft" className="p-8 space-y-10">
         {step===1 && (
-          <form className="space-y-8" onSubmit={e=>{e.preventDefault(); if(role) setStep(2);}}>
+          <form className="space-y-8" onSubmit={e=>{
+            e.preventDefault();
+            if(!role) return;
+            if(!fullName || !email || !password || !phoneNumber || !location) {
+              setError("Please fill all required fields.");
+              return;
+            }
+            setError("");
+            setStep(2);
+          }}>
             <div className="space-y-5">
               <div className="space-y-3">
                 <p className="text-[13px] font-medium text-[var(--apple-text-secondary)]">Select Role</p>
@@ -30,26 +58,59 @@ export default function Signup() {
                 </div>
               </div>
               <div className="grid gap-5 md:grid-cols-2">
-                <Input label="Full name" placeholder="Enter your name" />
-                <Input label="Mobile number" placeholder="10-digit number" inputMode="numeric" />
-                <Input label="City / Area" placeholder="e.g., Andheri, Mumbai" />
+                <Input label="Full name" placeholder="Enter your name" value={fullName} onChange={e=>setFullName(e.target.value)} />
+                <Input label="Email" type="email" placeholder="Enter your email" value={email} onChange={e=>setEmail(e.target.value)} />
+                <Input label="Password" type="password" placeholder="Create password" value={password} onChange={e=>setPassword(e.target.value)} />
+                <Input label="Mobile number" placeholder="10-digit number" inputMode="numeric" value={phoneNumber} onChange={e=>setPhoneNumber(e.target.value.replace(/\D/g,''))} />
+                <Input label="City / Area" placeholder="e.g., Andheri, Mumbai" value={location} onChange={e=>setLocation(e.target.value)} />
               </div>
             </div>
-            <Button type="submit" className="w-full md:w-auto px-10" disabled={!role}>Continue</Button>
+            {error && <div className="text-red-500 text-sm">{error}</div>}
+            <Button type="submit" className="w-full md:w-auto px-10" disabled={!role || !fullName || !email || !password || !phoneNumber || !location}>Continue</Button>
           </form>
         )}
         {step===2 && (
-          <form className="space-y-10" onSubmit={e=>{e.preventDefault(); window.location.href='/'}}>
+          <form className="space-y-10" onSubmit={async e=>{
+            e.preventDefault();
+            setError("");
+            setIsLoading(true);
+            // Sign up with Supabase Auth
+            const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+            if(signUpError) {
+              setError(signUpError.message);
+              setIsLoading(false);
+              return;
+            }
+            // Insert profile in users table
+            let profile: any = {
+              id: data.user?.id,
+              email,
+              full_name: fullName,
+              role,
+              phone_number: phoneNumber,
+              location,
+            };
+            if(role==='worker') {
+              profile.skills = skills;
+              profile.experience_years = experienceYears ? parseInt(experienceYears) : null;
+              profile.bio = bio;
+            }
+            // For employer, you can add companyName, preferredSkills, gst, address if needed
+            const { error: profileError } = await supabase.from('users').upsert(profile);
+            setIsLoading(false);
+            if(profileError) {
+              setError(profileError.message);
+              return;
+            }
+            window.location.href = '/';
+          }}>
             {role==='worker' && (
               <div className="space-y-6">
                 <p className="text-[13px] font-medium text-[var(--apple-text-secondary)]">Worker Details</p>
                 <div className="grid gap-6 md:grid-cols-2">
-                  <Input label="Primary skill" placeholder="e.g., Electrician" />
-                  <Input label="Years experience" placeholder="e.g., 3" inputMode="numeric" />
-                  <Input label="Base price (₹)" placeholder="e.g., 199" inputMode="numeric" />
-                  <Input label="Languages" placeholder="e.g., Hindi, English" />
-                  <Input label="ID Document" placeholder="Upload (UI only)" />
-                  <Input label="Address" placeholder="Street, Area" />
+                  <Input label="Skills" placeholder="e.g., Electrician, Plumber" value={skills.join(", ")} onChange={e=>setSkills(e.target.value.split(",").map(s=>s.trim()).filter(Boolean))} />
+                  <Input label="Years experience" placeholder="e.g., 3" inputMode="numeric" value={experienceYears} onChange={e=>setExperienceYears(e.target.value.replace(/\D/g,''))} />
+                  <Input label="Bio" placeholder="Tell us about yourself" value={bio} onChange={e=>setBio(e.target.value)} />
                 </div>
               </div>
             )}
@@ -57,16 +118,17 @@ export default function Signup() {
               <div className="space-y-6">
                 <p className="text-[13px] font-medium text-[var(--apple-text-secondary)]">Employer Details</p>
                 <div className="grid gap-6 md:grid-cols-2">
-                  <Input label="Company / Name" placeholder="Your or business name" />
-                  <Input label="Address" placeholder="Street, Area" />
-                  <Input label="Preferred skills" placeholder="e.g., Plumber, Cleaner" />
-                  <Input label="GST / Tax ID" placeholder="(optional)" />
+                  <Input label="Company / Name" placeholder="Your or business name" value={companyName} onChange={e=>setCompanyName(e.target.value)} />
+                  <Input label="Address" placeholder="Street, Area" value={address} onChange={e=>setAddress(e.target.value)} />
+                  <Input label="Preferred skills" placeholder="e.g., Plumber, Cleaner" value={preferredSkills} onChange={e=>setPreferredSkills(e.target.value)} />
+                  <Input label="GST / Tax ID" placeholder="(optional)" value={gst} onChange={e=>setGst(e.target.value)} />
                 </div>
               </div>
             )}
+            {error && <div className="text-red-500 text-sm">{error}</div>}
             <div className="flex flex-col sm:flex-row gap-4">
               <Button type="button" variant="secondary" className="sm:w-auto w-full" onClick={()=>setStep(1)}>Back</Button>
-              <Button type="submit" className="sm:flex-1 w-full">Finish & Continue</Button>
+              <Button type="submit" className="sm:flex-1 w-full" disabled={isLoading}>{isLoading ? "Processing..." : "Finish & Continue"}</Button>
             </div>
           </form>
         )}
